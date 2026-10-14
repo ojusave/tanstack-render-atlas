@@ -2,25 +2,17 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:http";
-import { createNote, deleteNote, getStorageMode, initializeStore, listNotes } from "./db.mjs";
+import { createTask, deleteTask, getStorageMode, initializeStore, listTasks, updateTask } from "./db.mjs";
 
-// This tiny server makes the built TanStack app runnable as a paid Render web
-// or private service. It is intentionally small so the deployment boundary is easy to see.
+// This small server gives the browser a real API and serves the built React app.
+// Keeping both pieces in one process makes the local project easy to run.
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 const publicRoot = join(projectRoot, "dist");
 const port = Number(process.env.PORT ?? 10000);
 
-// The backend owns these service facts. The frontend reads them through the API
-// instead of hard-coding a health message that could drift from reality.
-const serviceManifest = [
-  { id: "frontend", name: "TanStack frontend", kind: "browser", status: "ready" },
-  { id: "backend", name: "Node API", kind: "web", status: "ready" },
-  { id: "database", name: "Render Postgres", kind: "database", status: "waiting" },
-];
-
 function safePath(requestUrl) {
   // Only serve files below dist. A missing file falls back to the app shell so
-  // TanStack Router can handle browser routes such as /blueprint.
+  // the browser can still load the React app at its root route.
   const requestPath = decodeURIComponent(new URL(requestUrl, "http://localhost").pathname);
   const candidate = normalize(join(publicRoot, requestPath));
   return candidate.startsWith(publicRoot) ? candidate : join(publicRoot, "index.html");
@@ -49,31 +41,35 @@ async function handleRequest(request, response) {
   const requestUrl = new URL(request.url ?? "/", "http://localhost");
 
   if (requestUrl.pathname === "/health" || requestUrl.pathname === "/api/health") {
-    sendJson(response, 200, { ok: true, service: "tanstack-render-atlas", database: getStorageMode() });
+    sendJson(response, 200, { ok: true, service: "focus-board", database: getStorageMode() });
     return;
   }
 
-  if (requestUrl.pathname === "/api/services" && request.method === "GET") {
-    sendJson(response, 200, {
-      services: serviceManifest.map((service) => ({ ...service, status: service.id === "database" ? getStorageMode() : service.status })),
-    });
+  if (requestUrl.pathname === "/api/tasks" && request.method === "GET") {
+    sendJson(response, 200, { tasks: await listTasks() });
     return;
   }
 
-  if (requestUrl.pathname === "/api/notes" && request.method === "GET") {
-    sendJson(response, 200, { notes: await listNotes() });
-    return;
-  }
-
-  if (requestUrl.pathname === "/api/notes" && request.method === "POST") {
+  if (requestUrl.pathname === "/api/tasks" && request.method === "POST") {
     const body = await readJsonBody(request);
-    sendJson(response, 201, { note: await createNote(typeof body.body === "string" ? body.body : "") });
+    sendJson(response, 201, { task: await createTask(typeof body.title === "string" ? body.title : "") });
     return;
   }
 
-  const noteMatch = requestUrl.pathname.match(/^\/api\/notes\/([^/]+)$/);
-  if (noteMatch && request.method === "DELETE") {
-    await deleteNote(noteMatch[1]);
+  const taskMatch = requestUrl.pathname.match(/^\/api\/tasks\/([^/]+)$/);
+  if (taskMatch && request.method === "PATCH") {
+    const body = await readJsonBody(request);
+    const task = await updateTask(taskMatch[1], body.completed);
+    if (!task) {
+      sendJson(response, 404, { error: "Task not found." });
+      return;
+    }
+    sendJson(response, 200, { task });
+    return;
+  }
+
+  if (taskMatch && request.method === "DELETE") {
+    await deleteTask(taskMatch[1]);
     response.writeHead(204);
     response.end();
     return;
@@ -89,5 +85,5 @@ async function handleRequest(request, response) {
 
 await initializeStore();
 server.listen(port, "0.0.0.0", () => {
-  console.log(`Render full-stack demo listening on port ${port}`);
+  console.log(`Focus Board listening on port ${port}`);
 });

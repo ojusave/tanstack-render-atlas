@@ -1,32 +1,36 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createNote, fetchHealth, fetchNotes, fetchServices, removeNote } from "../lib/api";
+import { createTask, deleteTask, fetchHealth, fetchTasks, toggleTask } from "../lib/api";
 
-// These hooks keep backend state separate from visual components. TanStack Query
-// handles loading, retry, cache, and refresh behavior for the browser.
+// These hooks keep server data separate from visual components. TanStack Query
+// handles loading, caching, and refreshing after each task mutation.
 export function useHealth() {
   return useQuery({ queryKey: ["health"], queryFn: fetchHealth, refetchInterval: 15_000 });
 }
 
-export function useServices() {
-  return useQuery({ queryKey: ["services"], queryFn: fetchServices });
+export function useTasks() {
+  return useQuery({ queryKey: ["tasks"], queryFn: fetchTasks });
 }
 
-export function useNotes() {
-  return useQuery({ queryKey: ["notes"], queryFn: fetchNotes });
-}
-
-export function useCreateNote() {
+export function useCreateTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: createNote,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notes"] }),
+    mutationFn: createTask,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
   });
 }
 
-export function useRemoveNote() {
+export function useToggleTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: removeNote,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notes"] }),
+    mutationFn: toggleTask,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+  });
+}
+
+export function useDeleteTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteTask,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
   });
 }

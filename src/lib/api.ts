@@ -1,16 +1,13 @@
-export type ServiceStatus = {
+// A task is the small piece of data shared by the browser, API, and database.
+export type Task = {
   id: string;
-  name: string;
-  kind: string;
-  status: string;
-};
-
-export type Note = {
-  id: string;
-  body: string;
+  title: string;
+  completed: boolean;
   createdAt: string;
 };
 
+// The health response lets the UI explain whether the backend is reachable and
+// which storage mode is active on this machine.
 export type Health = {
   ok: boolean;
   service: string;
@@ -33,23 +30,25 @@ export function fetchHealth() {
   return request<Health>("/api/health");
 }
 
-export async function fetchServices() {
-  const response = await request<{ services: ServiceStatus[] }>("/api/services");
-  return response.services;
+export async function fetchTasks() {
+  const response = await request<{ tasks: Task[] }>("/api/tasks");
+  return response.tasks;
 }
 
-export async function fetchNotes() {
-  const response = await request<{ notes: Note[] }>("/api/notes");
-  return response.notes;
-}
-
-export function createNote(body: string) {
-  return request<{ note: Note }>("/api/notes", {
+export function createTask(title: string) {
+  return request<{ task: Task }>("/api/tasks", {
     method: "POST",
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({ title }),
   });
 }
 
-export function removeNote(id: string) {
-  return request<void>(`/api/notes/${encodeURIComponent(id)}`, { method: "DELETE" });
+export function toggleTask({ id, completed }: { id: string; completed: boolean }) {
+  return request<{ task: Task }>(`/api/tasks/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ completed }),
+  });
+}
+
+export function deleteTask(id: string) {
+  return request<void>(`/api/tasks/${encodeURIComponent(id)}`, { method: "DELETE" });
 }

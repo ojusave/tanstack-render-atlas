@@ -2,13 +2,20 @@ import pg from "pg";
 
 const { Pool } = pg;
 
-// The local fallback lets a new reader run the app before creating a database.
-// On Render, DATABASE_URL is injected by the Blueprint and the same API uses Postgres.
-const memoryNotes = [
+// The local fallback lets someone run the app immediately without installing a database.
+// If DATABASE_URL exists, the same functions use PostgreSQL instead.
+const memoryTasks = [
   {
     id: "local-1",
-    body: "The browser talks to the Node API, then the API talks to the database.",
+    title: "Add a task to see the app respond",
+    completed: false,
     createdAt: new Date().toISOString(),
+  },
+  {
+    id: "local-2",
+    title: "Mark a task complete when it is finished",
+    completed: false,
+    createdAt: new Date(Date.now() - 60_000).toISOString(),
   },
 ];
 
@@ -21,8 +28,8 @@ export async function initializeStore() {
     return;
   }
 
-  // Render Postgres accepts TLS connections. Local PostgreSQL can still work by
-  // setting NODE_ENV to development, which keeps the SSL option disabled.
+  // Hosted PostgreSQL commonly requires TLS. Local PostgreSQL stays plain unless
+  // the app is running in production mode.
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined,
@@ -30,62 +37,79 @@ export async function initializeStore() {
 
   await pool.query("SELECT 1");
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS service_notes (
+    CREATE TABLE IF NOT EXISTS tasks (
       id BIGSERIAL PRIMARY KEY,
-      body TEXT NOT NULL CHECK (char_length(body) BETWEEN 1 AND 240),
+      title TEXT NOT NULL CHECK (char_length(title) BETWEEN 1 AND 160),
+      completed BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
 
-  const result = await pool.query("SELECT COUNT(*)::int AS count FROM service_notes");
+  const result = await pool.query("SELECT COUNT(*)::int AS count FROM tasks");
   if (result.rows[0].count === 0) {
     await pool.query(
-      "INSERT INTO service_notes (body) VALUES ($1)",
-      ["The browser talks to the Node API, then the API talks to the database."],
+      "INSERT INTO tasks (title) VALUES ($1), ($2)",
+      ["Add a task to see the app respond", "Mark a task complete when it is finished"],
     );
   }
 
   storageMode = "postgres";
-  console.log("Connected to Postgres and prepared service_notes.");
+  console.log("Connected to Postgres and prepared tasks.");
 }
 
 export function getStorageMode() {
   return storageMode;
 }
 
-export async function listNotes() {
-  if (!pool) return [...memoryNotes].reverse();
+export async function listTasks() {
+  if (!pool) return [...memoryTasks].sort((a, b) => Number(a.completed) - Number(b.completed));
   const result = await pool.query(
-    "SELECT id::text, body, created_at AS \"createdAt\" FROM service_notes ORDER BY created_at DESC LIMIT 20",
+    "SELECT id::text, title, completed, created_at AS \"createdAt\" FROM tasks ORDER BY completed ASC, created_at DESC LIMIT 100",
   );
   return result.rows;
 }
 
-export async function createNote(body) {
-  const cleanedBody = body.trim();
-  if (!cleanedBody || cleanedBody.length > 240) {
-    throw new Error("A note must contain between 1 and 240 characters.");
+export async function createTask(title) {
+  const cleanedTitle = title.trim();
+  if (!cleanedTitle || cleanedTitle.length > 160) {
+    throw new Error("A task must contain between 1 and 160 characters.");
   }
 
   if (!pool) {
-    const note = { id: `local-${Date.now()}`, body: cleanedBody, createdAt: new Date().toISOString() };
-    memoryNotes.push(note);
-    return note;
+    const task = { id: `local-${Date.now()}`, title: cleanedTitle, completed: false, createdAt: new Date().toISOString() };
+    memoryTasks.push(task);
+    return task;
   }
 
   const result = await pool.query(
-    "INSERT INTO service_notes (body) VALUES ($1) RETURNING id::text, body, created_at AS \"createdAt\"",
-    [cleanedBody],
+    "INSERT INTO tasks (title) VALUES ($1) RETURNING id::text, title, completed, created_at AS \"createdAt\"",
+    [cleanedTitle],
   );
   return result.rows[0];
 }
 
-export async function deleteNote(id) {
+export async function updateTask(id, completed) {
+  if (typeof completed !== "boolean") throw new Error("Task completion must be true or false.");
+
   if (!pool) {
-    const index = memoryNotes.findIndex((note) => note.id === id);
-    if (index >= 0) memoryNotes.splice(index, 1);
+    const task = memoryTasks.find((item) => item.id === id);
+    if (task) task.completed = completed;
+    return task;
+  }
+
+  const result = await pool.query(
+    "UPDATE tasks SET completed = $2 WHERE id::text = $1 RETURNING id::text, title, completed, created_at AS \"createdAt\"",
+    [id, completed],
+  );
+  return result.rows[0];
+}
+
+export async function deleteTask(id) {
+  if (!pool) {
+    const index = memoryTasks.findIndex((task) => task.id === id);
+    if (index >= 0) memoryTasks.splice(index, 1);
     return;
   }
 
-  await pool.query("DELETE FROM service_notes WHERE id::text = $1", [id]);
+  await pool.query("DELETE FROM tasks WHERE id::text = $1", [id]);
 }
