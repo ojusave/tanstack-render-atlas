@@ -1,6 +1,8 @@
 # Focus Board
 
-Focus Board is a small task list you can run locally. It has a React frontend using TanStack Router and TanStack Query, a Node backend, and a database layer that uses temporary memory locally or PostgreSQL when `DATABASE_URL` is configured.
+Start here by running Focus Board locally. This repository contains the application itself. It does not include a Blueprint file and it does not deploy anything.
+
+Focus Board is a small task list with a React frontend using TanStack Router and TanStack Query, a Node backend, and a database layer that uses temporary memory locally or PostgreSQL when `DATABASE_URL` is configured.
 
 The app is intentionally straightforward: add a task, mark it complete, filter the list, or delete a task. You can add a Render Blueprint file later when you are ready to describe how the app should run in the cloud.
 
@@ -51,6 +53,8 @@ npm run dev
 
 Open [http://127.0.0.1:5173](http://127.0.0.1:5173).
 
+You should see the Focus Board task list with two starter tasks and an **API connected** status. If the page does not load, confirm that the terminal running `npm run dev` is still open.
+
 The command starts:
 
 - The frontend at `http://127.0.0.1:5173`
@@ -74,6 +78,8 @@ VITE v6.4.4 ready
 5. Select **Delete** to remove a task.
 
 These actions go through the Node API. With no `DATABASE_URL`, the data is stored in memory and resets when the backend restarts.
+
+Stop both local servers with `Ctrl+C` in the terminal running `npm run dev`.
 
 ## API routes
 
@@ -124,11 +130,36 @@ npm run start
 
 The Node server then serves both the built frontend and the API from port `10000`.
 
+A successful build ends with output similar to:
+
+```text
+✓ 170 modules transformed.
+✓ built in 663ms
+```
+
+The build time can vary between machines.
+
 ## Add a Blueprint later
 
 This repository intentionally does not include a `render.yaml` file. When you are ready to describe the cloud resources, add your own Blueprint file at the repository root.
 
 The file will typically define the web service, its build and start commands, the database, and the environment variable that connects the backend to PostgreSQL. Review that file before applying it in Render. Running this project locally does not create or change Render resources.
+
+Do not add deployment settings to the app until the local task flow works. When you are ready, commit the Blueprint separately so the application code and infrastructure choices remain easy to review.
+
+## Troubleshooting
+
+### Port `10000` or `5173` is already in use
+
+Stop the other local development process, then run `npm run dev` again. The backend uses port `10000` and the Vite frontend uses port `5173` by default.
+
+### The page says the API is offline
+
+Keep the terminal running `npm run dev` open. The frontend calls the Node backend at `http://127.0.0.1:10000`. Check the terminal for the first error, then refresh the browser after the backend starts.
+
+### Tasks disappear after a restart
+
+That is expected when `DATABASE_URL` is not set. The local fallback keeps setup simple, but it is temporary. Configure PostgreSQL later when you need persistent data.
 
 ## Project map
 
