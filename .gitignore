@@ -1,0 +1,14 @@
+# Dependencies are installed locally from package-lock.json.
+node_modules/
+
+# Vite creates this production bundle from the source files.
+dist/
+
+# Keep machine-specific and secret configuration out of GitHub.
+.env
+.env.*
+!.env.example
+
+# macOS metadata and local agent state do not belong in the repository.
+.DS_Store
+.loop/
