@@ -1,48 +1,51 @@
+<div align="center">
+
 # Focus Board
 
-Start here by running Focus Board locally. This repository contains the application itself. It does not include a Blueprint file and it does not deploy anything.
+**A local-first task app built with TanStack, Node, and PostgreSQL.**
 
-Focus Board is a small task list with a React frontend using TanStack Router and TanStack Query, a Node backend, and a database layer that uses temporary memory locally or PostgreSQL when `DATABASE_URL` is configured.
+Start with a useful app. Add infrastructure when you are ready.
 
-The app is intentionally straightforward: add a task, mark it complete, filter the list, or delete a task. You can add a Render Blueprint file later when you are ready to describe how the app should run in the cloud.
+<p>
+  <a href="https://tanstack.com/router/latest"><img src="https://img.shields.io/badge/TanStack-Router-ff4154?logo=react&logoColor=white" alt="TanStack Router" /></a>
+  <a href="https://tanstack.com/query/latest"><img src="https://img.shields.io/badge/TanStack-Query-ff4154?logo=react&logoColor=white" alt="TanStack Query" /></a>
+  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-20%2B-339933?logo=nodedotjs&logoColor=white" alt="Node.js 20 or newer" /></a>
+  <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/PostgreSQL-ready-336791?logo=postgresql&logoColor=white" alt="PostgreSQL ready" /></a>
+</p>
 
-## What the app contains
+<p>
+  <a href="#quickstart">Quickstart</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#api">API</a> ·
+  <a href="#add-a-blueprint-later">Blueprint later</a>
+</p>
 
-| Part | What it does |
+</div>
+
+> **Start here:** run the app locally, add a task, mark it complete, and see the frontend talk to the backend. This repository does not include a `render.yaml` file and does not deploy anything by itself.
+
+## The app
+
+Focus Board keeps one job visible: manage a short list of tasks.
+
+| You can | What happens |
 | --- | --- |
-| Frontend | Displays the task list and sends user actions to the API |
-| TanStack Query | Loads tasks, tracks requests, and refreshes the list after changes |
-| Node backend | Serves the API and the built frontend |
-| Database layer | Uses memory locally, or PostgreSQL when `DATABASE_URL` exists |
-
-The request path is:
-
-```text
-Browser
-  React + TanStack Router + TanStack Query
-        |
-        | /api/tasks
-        v
-Node backend
-        |
-        | database connection
-        v
-Memory locally or PostgreSQL
-```
+| Add a task | The browser sends a `POST` request to the Node API. |
+| Complete a task | The API updates the task, then TanStack Query refreshes the list. |
+| Filter the list | The browser shows all, open, or completed tasks. |
+| Delete a task | The API removes it from the current storage. |
 
 ## Quickstart
 
-### Prerequisites
+### Requirements
 
 - Node.js 20 or newer
 - Git
 - A terminal
 
-You do not need to install PostgreSQL to run the app locally.
+You do not need PostgreSQL or a Render account to run the app locally.
 
-### Run the app
-
-Clone the repository, enter the project folder, install the dependencies, and start the local frontend and backend:
+### Run it
 
 ```bash
 git clone https://github.com/ojusave/tanstack-render-atlas.git
@@ -53,14 +56,22 @@ npm run dev
 
 Open [http://127.0.0.1:5173](http://127.0.0.1:5173).
 
-You should see the Focus Board task list with two starter tasks and an **API connected** status. If the page does not load, confirm that the terminal running `npm run dev` is still open.
+You should see:
 
-The command starts:
+- Two starter tasks
+- An **API connected** status
+- The **Add task** field
+- Filters for **All**, **Open**, and **Done**
 
-- The frontend at `http://127.0.0.1:5173`
-- The backend at `http://127.0.0.1:10000`
+The single development command starts both parts of the app:
 
-The terminal should contain output similar to:
+| URL | Part |
+| --- | --- |
+| `http://127.0.0.1:5173` | Vite frontend |
+| `http://127.0.0.1:10000` | Node backend |
+
+<details>
+<summary>Expected terminal output</summary>
 
 ```text
 DATABASE_URL is not set. Using the local in-memory store.
@@ -69,21 +80,31 @@ VITE v6.4.4 ready
 ➜  Local: http://127.0.0.1:5173/
 ```
 
-### Use the app
+</details>
+
+### Try the main flow
 
 1. Enter a task in **What needs doing?**.
 2. Select **Add task**.
-3. Select the checkbox to mark the task complete.
-4. Use **All**, **Open**, or **Done** to filter the list.
-5. Select **Delete** to remove a task.
+3. Select the checkbox to mark it complete.
+4. Select **Done** to see completed work.
+5. Select **Delete** to remove the task.
 
-These actions go through the Node API. With no `DATABASE_URL`, the data is stored in memory and resets when the backend restarts.
+Stop the local servers with `Ctrl+C` in the terminal running `npm run dev`.
 
-Stop both local servers with `Ctrl+C` in the terminal running `npm run dev`.
+## How it works
 
-## API routes
+```mermaid
+flowchart LR
+    Browser["Browser<br/>React + TanStack"] -->|"JSON /api/tasks"| API["Node API<br/>Port 10000"]
+    API -->|"DATABASE_URL"| Store[("Tasks<br/>Memory or PostgreSQL")]
+```
 
-The backend listens on port `10000` during local development.
+The browser uses TanStack Router for the page entry point and TanStack Query for server data. The Node backend serves the built frontend and handles task requests. The database layer chooses the storage mode at startup.
+
+## API
+
+The local backend listens on port `10000`.
 
 | Method | Route | Purpose |
 | --- | --- | --- |
@@ -99,20 +120,28 @@ Check the backend directly:
 curl http://127.0.0.1:10000/api/health
 ```
 
-Local output includes:
+Expected local response:
 
 ```json
 {"ok":true,"service":"focus-board","database":"memory"}
 ```
 
-## Database behavior
+Create a task without using the browser:
 
-The app has two storage modes:
+```bash
+curl -X POST http://127.0.0.1:10000/api/tasks \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Read the API response"}'
+```
 
-- Without `DATABASE_URL`, the backend uses an in-memory task list. This keeps local setup short and requires no database account.
-- With `DATABASE_URL`, the backend connects to PostgreSQL, creates a `tasks` table if needed, and stores tasks there.
+## Storage
 
-The `PORT` environment variable can change the backend port. If it is not set, the backend uses `10000`.
+| Mode | When it is used | What to expect |
+| --- | --- | --- |
+| Memory | `DATABASE_URL` is missing | The app starts immediately. Data resets when the backend restarts. |
+| PostgreSQL | `DATABASE_URL` is set | The backend creates a `tasks` table and stores tasks persistently. |
+
+The backend uses port `10000` by default. Set `PORT` to use a different port.
 
 ## Build and run the production shape
 
@@ -128,48 +157,100 @@ Run the built application:
 npm run start
 ```
 
-The Node server then serves both the built frontend and the API from port `10000`.
+The Node server then serves the built frontend and API from port `10000`.
 
-A successful build ends with output similar to:
+<details>
+<summary>Successful build output</summary>
 
 ```text
 ✓ 170 modules transformed.
 ✓ built in 663ms
 ```
 
-The build time can vary between machines.
+Build time varies by machine.
+
+</details>
 
 ## Add a Blueprint later
 
-This repository intentionally does not include a `render.yaml` file. When you are ready to describe the cloud resources, add your own Blueprint file at the repository root.
+The application comes first. When the local task flow is clear, add your own `render.yaml` file at the repository root.
 
-The file will typically define the web service, its build and start commands, the database, and the environment variable that connects the backend to PostgreSQL. Review that file before applying it in Render. Running this project locally does not create or change Render resources.
+The Blueprint should contain two resources:
 
-Do not add deployment settings to the app until the local task flow works. When you are ready, commit the Blueprint separately so the application code and infrastructure choices remain easy to review.
+| Resource | Configuration |
+| --- | --- |
+| Web service | Node runtime, `npm ci && npm run build`, `npm start`, and `/api/health` as the health check |
+| PostgreSQL | A managed database connected to the web service through `DATABASE_URL` |
 
-## Troubleshooting
+The expected shape is:
 
-### Port `10000` or `5173` is already in use
+<details>
+<summary>Blueprint preview</summary>
 
-Stop the other local development process, then run `npm run dev` again. The backend uses port `10000` and the Vite frontend uses port `5173` by default.
+```yaml
+services:
+  - type: web
+    name: focus-board
+    runtime: node
+    region: oregon
+    plan: starter
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: focus-board-db
+          property: connectionString
 
-### The page says the API is offline
+databases:
+  - name: focus-board-db
+    region: oregon
+    plan: basic-256mb
+    databaseName: focus_board
+    user: focus_board
+```
 
-Keep the terminal running `npm run dev` open. The frontend calls the Node backend at `http://127.0.0.1:10000`. Check the terminal for the first error, then refresh the browser after the backend starts.
+</details>
 
-### Tasks disappear after a restart
-
-That is expected when `DATABASE_URL` is not set. The local fallback keeps setup simple, but it is temporary. Configure PostgreSQL later when you need persistent data.
+Review the Blueprint before applying it in Render. Running this repository locally does not create or change Render resources. See Render’s [Blueprint YAML reference](https://render.com/docs/blueprint-spec) for the current schema.
 
 ## Project map
 
-- [`src/main.tsx`](src/main.tsx) starts TanStack Router and TanStack Query.
-- [`src/routes.tsx`](src/routes.tsx) defines the task screen and its user interactions.
-- [`src/hooks/useBackend.ts`](src/hooks/useBackend.ts) connects React components to backend requests with TanStack Query.
-- [`src/lib/api.ts`](src/lib/api.ts) defines the browser API client and shared response types.
-- [`scripts/dev.mjs`](scripts/dev.mjs) starts the frontend and backend together.
-- [`scripts/server.mjs`](scripts/server.mjs) serves the frontend and handles API requests.
-- [`scripts/db.mjs`](scripts/db.mjs) chooses memory or PostgreSQL storage.
+| Path | Role |
+| --- | --- |
+| [`src/main.tsx`](src/main.tsx) | Starts TanStack Router and TanStack Query. |
+| [`src/routes.tsx`](src/routes.tsx) | Defines the task screen and user interactions. |
+| [`src/hooks/useBackend.ts`](src/hooks/useBackend.ts) | Connects the UI to the backend with TanStack Query. |
+| [`src/lib/api.ts`](src/lib/api.ts) | Defines browser API requests and response types. |
+| [`scripts/dev.mjs`](scripts/dev.mjs) | Starts the frontend and backend together. |
+| [`scripts/server.mjs`](scripts/server.mjs) | Serves the frontend and handles API requests. |
+| [`scripts/db.mjs`](scripts/db.mjs) | Chooses memory or PostgreSQL storage. |
+
+## Troubleshooting
+
+<details>
+<summary>Port 10000 or 5173 is already in use</summary>
+
+Stop the other local development process, then run `npm run dev` again. The backend uses port `10000` and Vite uses port `5173` by default.
+
+</details>
+
+<details>
+<summary>The page says the API is offline</summary>
+
+Keep the terminal running `npm run dev` open. The frontend calls the Node backend at `http://127.0.0.1:10000`. Check the first error in that terminal, then refresh the browser after the backend starts.
+
+</details>
+
+<details>
+<summary>Tasks disappear after a restart</summary>
+
+That is expected when `DATABASE_URL` is not set. The local memory fallback keeps setup simple. Configure PostgreSQL when you need persistent data.
+
+</details>
 
 ## License
 
